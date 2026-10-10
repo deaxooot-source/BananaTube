@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { ChannelItem } from '../types';
+import { resolveYouTubeChannel } from '../utils/youtube';
 
 interface ChannelsManagerModalProps {
   channels: ChannelItem[];
@@ -63,11 +64,8 @@ export const ChannelsManagerModal: React.FC<ChannelsManagerModalProps> = ({
         return;
       }
 
-      // Check server resolver
-      const res = await fetch(`/api/channels/resolve?q=${encodeURIComponent(query)}`);
-      const data = await res.json();
-
-      if (res.ok && data.success && data.channelId) {
+      try {
+        const data = await resolveYouTubeChannel(query);
         if (channels.some((c) => c.id === data.channelId)) {
           setErrorMsg('هذه القناة موجودة بالفعل في قائمتك!');
           setIsResolving(false);
@@ -85,7 +83,7 @@ export const ChannelsManagerModal: React.FC<ChannelsManagerModalProps> = ({
         setSuccessMsg(`تمت إضافة القناة بنجاح: "${newChannel.title}"! 🎉`);
         setInputVal('');
         setCustomNameInput('');
-      } else {
+      } catch (error) {
         // If resolver fails, check if input is a valid 24-char UC channel ID
         if (query.startsWith('UC') && query.length >= 22) {
           const newChannel: ChannelItem = {
@@ -99,7 +97,11 @@ export const ChannelsManagerModal: React.FC<ChannelsManagerModalProps> = ({
           setInputVal('');
           setCustomNameInput('');
         } else {
-          setErrorMsg(data.error || 'تعذر التعرف على القناة. أدخل معرّف القناة ID الذي يبدأ بـ UC أو رابط القناة.');
+          setErrorMsg(
+            error instanceof Error
+              ? error.message
+              : 'تعذر التعرف على القناة. أدخل معرّف القناة ID الذي يبدأ بـ UC أو رابط القناة.'
+          );
         }
       }
     } catch (err: any) {

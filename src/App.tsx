@@ -27,6 +27,7 @@ import { WatchLaterView } from './components/WatchLaterView';
 import { SettingsModal } from './components/SettingsModal';
 import { ThemeCustomizerModal } from './components/ThemeCustomizerModal';
 import { ShortsView } from './components/ShortsView';
+import { fetchChannelFeed } from './utils/youtube';
 
 const STORAGE_CHANNELS_KEY = 'banana_tube_channels_v2';
 const STORAGE_FEATURED_KEY = 'banana_tube_featured_v2';
@@ -235,23 +236,26 @@ export default function App() {
       setFetchError(null);
 
       try {
-        const channelIds = currentChannels.map((c) => c.id);
-        const res = await fetch('/api/channels/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ channelIds, fresh: forceFresh }),
-        });
-
-        if (!res.ok) {
-          throw new Error(`خطأ في الخادم: ${res.status}`);
+        const uniqueChannels = Array.from(new Map(currentChannels.map((channel) => [channel.id, channel])).values());
+        const channelFeeds: Awaited<ReturnType<typeof fetchChannelFeed>>[] = [];
+        for (let index = 0; index < uniqueChannels.length; index += 6) {
+          const chunk = uniqueChannels.slice(index, index + 6);
+          channelFeeds.push(
+            ...(await Promise.all(
+              chunk.map((channel) => fetchChannelFeed(channel.id, forceFresh, channel.title))
+            ))
+          );
+        }
+        if (channelFeeds.length === 0) {
+          throw new Error('تعذر جلب خلاصة أي قناة عبر البروكسي');
         }
 
-        const data = await res.json();
-        if (data.channels && Array.isArray(data.channels)) {
+        if (channelFeeds.length > 0) {
           const allFetchedVideos: VideoItem[] = [];
           const fetchedChannelsInfo = new Map<string, { title?: string; avatar?: string; count?: number }>();
+          const failedChannels = channelFeeds.filter((channel) => channel.error);
 
-          for (const ch of data.channels) {
+          for (const ch of channelFeeds) {
             fetchedChannelsInfo.set(ch.channelId, {
               title: ch.channelTitle,
               avatar: ch.avatar,
@@ -263,14 +267,34 @@ export default function App() {
             }
           }
 
-          // Sort by publish date descending (Newest first)
-          allFetchedVideos.sort((a, b) => {
-            const timeA = new Date(a.published).getTime() || 0;
-            const timeB = new Date(b.published).getTime() || 0;
-            return timeB - timeA;
+          const activeChannelIds = new Set(uniqueChannels.map((channel) => channel.id));
+          const resolvedChannelTitles = new Map(
+            channelFeeds.map((channel) => [channel.channelId, channel.channelTitle])
+          );
+          setVideos((previousVideos) => {
+            const videosById = new Map<string, VideoItem>();
+            previousVideos
+              .filter((video) => activeChannelIds.has(video.channelId))
+              .forEach((video) => {
+                const channelTitle = resolvedChannelTitles.get(video.channelId) || video.channelTitle;
+                videosById.set(video.videoId, {
+                  ...video,
+                  channelTitle,
+                  author: video.author === video.channelTitle ? channelTitle : video.author,
+                });
+              });
+            allFetchedVideos.forEach((video) => videosById.set(video.videoId, video));
+            const mergedVideos = Array.from(videosById.values());
+            mergedVideos.sort((a, b) => {
+              const timeA = new Date(a.published).getTime() || 0;
+              const timeB = new Date(b.published).getTime() || 0;
+              return timeB - timeA;
+            });
+            try {
+              localStorage.setItem(STORAGE_VIDEOS_CACHE_KEY, JSON.stringify(mergedVideos));
+            } catch {}
+            return mergedVideos;
           });
-
-          setVideos(allFetchedVideos);
           setLastRefreshed(new Date());
 
           // Update channel metadata without removing any newly added channels!
@@ -291,9 +315,11 @@ export default function App() {
             return updated;
           });
 
-          try {
-            localStorage.setItem(STORAGE_VIDEOS_CACHE_KEY, JSON.stringify(allFetchedVideos));
-          } catch {}
+          setFetchError(
+            failedChannels.length > 0
+              ? `تعذر تحديث ${failedChannels.length} من ${channelFeeds.length} قناة. تم الإبقاء على بياناتها المحفوظة.`
+              : null
+          );
         }
       } catch (err: any) {
         console.error('Error fetching feeds:', err);
@@ -424,47 +450,36 @@ export default function App() {
     setSelectedChannelId(newChannel.id);
     setActiveTab('feed');
 
-    // 4. Prefetch shorts in the background for this new channel
-    fetch('/api/channels/shorts-batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelIds: [newChannel.id] }),
-    }).catch(() => {});
-
-    // 5. Immediately fetch this newly added channel's videos!
+    // 4. Immediately fetch this newly added channel's videos!
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/channels/feed?channelId=${encodeURIComponent(newChannel.id)}&fresh=true`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.videos)) {
-          // Update channel metadata
-          setChannels((prev) =>
-            prev.map((c) =>
-              c.id === newChannel.id
-                ? {
-                    ...c,
-                    title: c.customName || data.channelTitle || c.title,
-                    avatar: data.avatar || c.avatar,
-                    videoCount: data.videos.length,
-                  }
-                : c
-            )
-          );
+      const data = await fetchChannelFeed(newChannel.id, true);
 
-          // Merge new videos into main feed (prepend so they are visible right away)
-          setVideos((prev) => {
-            const newVideoIds = new Set(data.videos.map((v: VideoItem) => v.videoId));
-            const remaining = prev.filter((v) => !newVideoIds.has(v.videoId));
-            const merged = [...data.videos, ...remaining];
-            merged.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
-            try {
-              localStorage.setItem(STORAGE_VIDEOS_CACHE_KEY, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-        }
-      }
+      // Update channel metadata
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.id === newChannel.id
+            ? {
+                ...c,
+                title: c.customName || data.channelTitle || c.title,
+                avatar: data.avatar || c.avatar,
+                videoCount: data.videos.length,
+              }
+            : c
+        )
+      );
+
+      // Merge new videos into main feed (prepend so they are visible right away)
+      setVideos((prev) => {
+        const newVideoIds = new Set(data.videos.map((v) => v.videoId));
+        const remaining = prev.filter((v) => !newVideoIds.has(v.videoId));
+        const merged = [...data.videos, ...remaining];
+        merged.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
+        try {
+          localStorage.setItem(STORAGE_VIDEOS_CACHE_KEY, JSON.stringify(merged));
+        } catch {}
+        return merged;
+      });
     } catch (err) {
       console.error('Failed to fetch new channel videos:', err);
     } finally {

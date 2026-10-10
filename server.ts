@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { fetchYouTubeData, getFallbackChannelTitle } from './src/utils/youtube';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,11 +45,20 @@ function decodeXml(str: string): string {
     .replace(/&#([0-9]+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
 }
 
-function parseYouTubeAtom(xml: string, channelId: string): { channelTitle: string; videos: VideoFeedItem[] } {
+function parseYouTubeAtom(
+  xml: string,
+  channelId: string,
+  fallbackTitle: string
+): { channelTitle: string; videos: VideoFeedItem[] } {
   // Channel Title from <feed><title>
   const channelTitleMatch = xml.match(/<feed[^>]*>[\s\S]*?<title>([\s\S]*?)<\/title>/i);
-  const rawTitle = channelTitleMatch ? decodeXml(channelTitleMatch[1].trim()) : `قناة ${channelId.slice(0, 8)}`;
-  const channelTitle = rawTitle.replace(/^YouTube - /i, '').trim();
+  const rawTitle = channelTitleMatch
+    ? decodeXml(channelTitleMatch[1].trim()).replace(/^YouTube\s*-\s*/i, '').trim()
+    : '';
+  const channelTitle =
+    rawTitle && !/^YouTube$/i.test(rawTitle) && !/^قناة(?:\s+[A-Z0-9_-]{1,8})?$/i.test(rawTitle)
+      ? rawTitle
+      : fallbackTitle;
 
   const videos: VideoFeedItem[] = [];
   const entryRegex = /<entry>([\s\S]*?)<\/entry>/gi;
@@ -99,7 +109,7 @@ function parseYouTubeAtom(xml: string, channelId: string): { channelTitle: strin
 
 async function checkIfVideoIsShort(videoId: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+    const res = await fetchYouTubeData(`https://www.youtube.com/shorts/${videoId}`, {
       method: 'HEAD',
       redirect: 'manual',
       headers: {
@@ -196,7 +206,7 @@ async function fetchChannelShorts(channelId: string, channelTitle = ''): Promise
 
   try {
     const url = `https://www.youtube.com/channel/${encodeURIComponent(channelId)}/shorts`;
-    const res = await fetch(url, {
+    const res = await fetchYouTubeData(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Cookie': 'SOCS=CAESEwgDEgk2NDIyNDU5NDQaAmVuIAEaBgiA_LyaBg',
@@ -287,7 +297,7 @@ async function fetchChannelFeed(channelId: string, forceFresh = false): Promise<
 
   try {
     const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
-    const response = await fetch(rssUrl, {
+    const response = await fetchYouTubeData(rssUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'ar,en-US;q=0.9',
@@ -300,7 +310,11 @@ async function fetchChannelFeed(channelId: string, forceFresh = false): Promise<
     }
 
     const xml = await response.text();
-    const { channelTitle, videos } = parseYouTubeAtom(xml, channelId);
+    if (!/<feed(?:\s|>)/i.test(xml)) {
+      throw new Error('YouTube returned an invalid RSS feed');
+    }
+    const fallbackTitle = getFallbackChannelTitle(channelId);
+    const { channelTitle, videos } = parseYouTubeAtom(xml, channelId, fallbackTitle);
 
     // Retrieve cached or seeded shorts if available (avoids blocking RSS fetch)
     const cachedShorts = channelShortsCache.get(channelId)?.shorts || DEFAULT_CHANNEL_SHORTS_SEEDS[channelId] || [];
@@ -321,15 +335,25 @@ async function fetchChannelFeed(channelId: string, forceFresh = false): Promise<
   } catch (error: any) {
     console.error(`Error fetching channel ${channelId}:`, error.message);
     if (cached) {
+      const fallbackTitle = getFallbackChannelTitle(channelId);
+      const channelTitle =
+        cached.channelTitle && !/^YouTube$/i.test(cached.channelTitle) &&
+        !/^قناة(?:\s+[A-Z0-9_-]{1,8})?$/i.test(cached.channelTitle)
+          ? cached.channelTitle
+          : fallbackTitle;
       return {
         ...cached,
+        channelTitle,
+        videos: cached.videos.map((video) =>
+          video.channelTitle === cached.channelTitle ? { ...video, channelTitle } : video
+        ),
         error: `تعذر تحديث البيانات، يتم عرض آخر نسخة محفوظة (${error.message})`,
       };
     }
     const seedShorts = DEFAULT_CHANNEL_SHORTS_SEEDS[channelId] || [];
     return {
       channelId,
-      channelTitle: `قناة ${channelId.slice(0, 8)}`,
+      channelTitle: getFallbackChannelTitle(channelId),
       avatar: `https://unavatar.io/youtube/${channelId}`,
       videos: seedShorts,
       error: error.message || 'تعذر جلب خلاصة القناة',
@@ -451,7 +475,7 @@ async function startServer() {
 
     try {
       const targetUrl = handle.startsWith('http') ? handle : `https://www.youtube.com/${handle}`;
-      const response = await fetch(targetUrl, {
+      const response = await fetchYouTubeData(targetUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8',
@@ -517,7 +541,7 @@ async function startServer() {
 
     try {
       const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-      const resp = await fetch(oembedUrl, { signal: AbortSignal.timeout(6000) });
+      const resp = await fetchYouTubeData(oembedUrl, { signal: AbortSignal.timeout(6000) });
       if (resp.ok) {
         const data = await resp.json();
         return res.json({
@@ -554,7 +578,7 @@ async function startServer() {
       const invidiousInstances = ['https://inv.nadeko.net', 'https://invidious.nerdvpn.de'];
       for (const instance of invidiousInstances) {
         try {
-          const resp = await fetch(`${instance}/api/v1/comments/${videoId}`, {
+          const resp = await fetchYouTubeData(`${instance}/api/v1/comments/${videoId}`, {
             signal: AbortSignal.timeout(3000),
           });
           if (resp.ok) {

@@ -14,7 +14,7 @@ import {
   Film
 } from 'lucide-react';
 import { FeaturedVideoItem, VideoItem } from '../types';
-import { extractVideoId, formatArabicDate } from '../utils/youtube';
+import { extractVideoId, fetchYouTubeVideoInfo, formatArabicDate } from '../utils/youtube';
 
 interface FeaturedVideosViewProps {
   featuredVideos: FeaturedVideoItem[];
@@ -55,15 +55,12 @@ export const FeaturedVideosView: React.FC<FeaturedVideosViewProps> = ({
 
     const vidId = extractVideoId(val);
     if (vidId && !customTitle) {
-      // Auto fetch title via /api/video-info
+      // Auto fetch title through the CORS proxy
       setIsFetchingInfo(true);
       try {
-        const res = await fetch(`/api/video-info?url=${encodeURIComponent(val)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.title && !customTitle) {
-            setCustomTitle(data.title);
-          }
+        const data = await fetchYouTubeVideoInfo(val);
+        if (data.title && !customTitle) {
+          setCustomTitle(data.title);
         }
       } catch {
         // Fallback silently

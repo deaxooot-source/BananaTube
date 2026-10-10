@@ -19,7 +19,12 @@ import {
   Film
 } from 'lucide-react';
 import { VideoItem, ShortComment, ChannelItem } from '../types';
-import { extractVideoId, formatArabicDate } from '../utils/youtube';
+import {
+  extractVideoId,
+  fetchChannelShorts,
+  fetchVideoComments,
+  formatArabicDate,
+} from '../utils/youtube';
 
 interface ShortsViewProps {
   videos: VideoItem[];
@@ -133,28 +138,22 @@ export const ShortsView: React.FC<ShortsViewProps> = ({
     if (channels.length === 0) return;
     setIsFetchingShorts(true);
     try {
-      const channelIds = channels.map((c) => c.id);
-      const res = await fetch('/api/channels/shorts-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelIds }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.shorts) && data.shorts.length > 0) {
-          // Enrich with user's custom channel title if known
-          const channelsMap = new Map(channels.map((c) => [c.id, c.customName || c.title]));
-          const enriched = data.shorts.map((s: VideoItem) => ({
-            ...s,
-            channelTitle: channelsMap.get(s.channelId) || s.channelTitle,
-            author: channelsMap.get(s.channelId) || s.author,
-          }));
+      const results = await Promise.allSettled(channels.map((channel) => fetchChannelShorts(channel.id)));
+      const channelsMap = new Map(channels.map((c) => [c.id, c.customName || c.title]));
+      const fetchedShorts = results.flatMap((result) =>
+        result.status === 'fulfilled' ? result.value : []
+      );
+      const enriched = fetchedShorts.map((short) => ({
+        ...short,
+        channelTitle: channelsMap.get(short.channelId) || short.channelTitle,
+        author: channelsMap.get(short.channelId) || short.author,
+      }));
 
-          setFetchedChannelShorts(enriched);
-          try {
-            localStorage.setItem('banana_tube_fetched_shorts_v2', JSON.stringify(enriched));
-          } catch {}
-        }
+      if (enriched.length > 0) {
+        setFetchedChannelShorts(enriched);
+        try {
+          localStorage.setItem('banana_tube_fetched_shorts_v2', JSON.stringify(enriched));
+        } catch {}
       }
     } catch (err) {
       console.error('Error fetching channel shorts:', err);
@@ -165,9 +164,7 @@ export const ShortsView: React.FC<ShortsViewProps> = ({
 
   // Initial fetch if empty or when channels change
   useEffect(() => {
-    if (fetchedChannelShorts.length === 0) {
-      loadChannelShorts();
-    }
+    loadChannelShorts();
   }, [channels, loadChannelShorts]);
 
   // ONLY SHORTS FROM THE USER'S SUBSCRIBED CHANNELS - STRICTLY NO RANDOM VIDEOS!
@@ -272,13 +269,12 @@ export const ShortsView: React.FC<ShortsViewProps> = ({
       const vid = currentShort.videoId;
       if (!commentsMap[vid] || commentsMap[vid].length === 0) {
         setIsLoadingComments(true);
-        fetch(`/api/comments?videoId=${vid}`)
-          .then((res) => res.json())
-          .then((data) => {
-            if (data && Array.isArray(data.comments) && data.comments.length > 0) {
+        fetchVideoComments(vid)
+          .then((comments) => {
+            if (comments.length > 0) {
               setCommentsMap((prev) => ({
                 ...prev,
-                [vid]: data.comments,
+                [vid]: comments,
               }));
             } else {
               // Community fallback comments
