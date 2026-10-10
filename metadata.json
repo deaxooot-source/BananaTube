@@ -1,0 +1,6 @@
+{
+  "name": "Banana Tube",
+  "description": "تطبيق يوتيوب خفيف وسريع بديل للأجهزة القديمة يتيح تتبع قنوات محددة وإضافة قنوات وفيديوهات مميزة بروابط مباشرة دون إعلانات أو بطء.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

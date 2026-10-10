@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ar" dir="rtl" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>Banana Tube | بنانا تيوب - يوتيوب خفيف وسريع</title>
+    <meta name="description" content="تطبيق يوتيوب خفيف وسريع بديل للأجهزة القديمة يتيح تتبع قنوات محددة وإضافة قنوات وفيديوهات مميزة بروابط مباشرة دون إعلانات أو بطء." />
+    <meta property="og:title" content="Banana Tube | بنانا تيوب" />
+    <meta property="og:description" content="تطبيق يوتيوب خفيف وسريع بديل للأجهزة القديمة لمتابعة قنواتك المفضلة وفيديوهاتك المميزة." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0F172A" />
+    
+    <!-- Google Fonts for Arabic (Cairo, Tajawal, Almarai) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    
+    <!-- Favicon with Banana emoji SVG -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍌</text></svg>" />
+    
+    <script>
+      // Suppress Vite HMR WebSocket connection errors as HMR is disabled in AI Studio environment
+      window.addEventListener('error', function(e) {
+        if (e && e.message && (e.message.includes('WebSocket') || e.message.includes('createWebSocketModuleRunnerTransport') || e.message.includes('@vite/client'))) {
+          e.preventDefault();
+          e.stopPropagation();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(e) {
+        if (e && e.reason && String(e.reason).includes('WebSocket')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      });
+    </script>
+  </head>
+  <body class="font-sans antialiased min-h-screen selection:bg-amber-400 selection:text-slate-900">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

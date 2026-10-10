@@ -1,0 +1,402 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+}
+
+/* ========================================================
+   CSS Variables for Dynamic Theming & Secondary Darkening
+   ======================================================== */
+:root {
+  /* Default Theme: Dark (Obsidian) */
+  --bg-app: #030712;
+  --bg-card: #0f172a;
+  --bg-card-hover: #1e293b;
+  --bg-card-inner: #090e1a;
+  --bg-surface: #0b0f19;
+  --bg-header: rgba(15, 23, 42, 0.96);
+  --border-color: #1e293b;
+  --border-highlight: #334155;
+  --text-main: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Accent: Banana (Default) */
+  --accent-main: #facc15;
+  --accent-hover: #eab308;
+  --accent-dark: #ca8a04;
+  --accent-light: #fef08a;
+  --accent-bg: rgba(250, 204, 21, 0.12);
+  --accent-border: rgba(250, 204, 21, 0.35);
+  --accent-text: #fde047;
+  --accent-contrast: #0f172a;
+
+  /* Secondary Color (Same hue as accent, but darkened) */
+  --accent-secondary: #b45309;
+  --accent-secondary-hover: #92400e;
+  --accent-secondary-bg: rgba(180, 83, 9, 0.16);
+  --accent-secondary-border: rgba(180, 83, 9, 0.45);
+  --accent-secondary-text: #f59e0b;
+}
+
+/* Theme 1: Light Mode (Clean & Elegant) */
+html[data-theme='light'] {
+  --bg-app: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-card-inner: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-header: rgba(255, 255, 255, 0.96);
+  --border-color: #e2e8f0;
+  --border-highlight: #cbd5e1;
+  --text-main: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+}
+
+/* Theme 2: OLED Pure Black (Maximum Battery Saver) */
+html[data-theme='oled'] {
+  --bg-app: #000000;
+  --bg-card: #080808;
+  --bg-card-hover: #121212;
+  --bg-card-inner: #000000;
+  --bg-surface: #040404;
+  --bg-header: rgba(5, 5, 5, 0.98);
+  --border-color: #1a1a1a;
+  --border-highlight: #282828;
+  --text-main: #ffffff;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+}
+
+/* Theme 3: Sepia / Warm Paper (Eye Comfort) */
+html[data-theme='sepia'] {
+  --bg-app: #181411;
+  --bg-card: #241e1a;
+  --bg-card-hover: #302823;
+  --bg-card-inner: #1c1714;
+  --bg-surface: #1f1a16;
+  --bg-header: rgba(36, 30, 26, 0.97);
+  --border-color: #3b322a;
+  --border-highlight: #52463b;
+  --text-main: #f5ebe0;
+  --text-secondary: #c7b6a6;
+  --text-muted: #9c8b7c;
+}
+
+/* Theme 4: Midnight Navy (Royal Deep Blue) */
+html[data-theme='navy'] {
+  --bg-app: #060b18;
+  --bg-card: #0b152d;
+  --bg-card-hover: #111f42;
+  --bg-card-inner: #080f21;
+  --bg-surface: #0a1329;
+  --bg-header: rgba(11, 21, 45, 0.96);
+  --border-color: #182850;
+  --border-highlight: #243b74;
+  --text-main: #f0f4ff;
+  --text-secondary: #90a4d4;
+  --text-muted: #6075a4;
+}
+
+/* Theme 5: Forest Dark (Calm Green Night) */
+html[data-theme='forest'] {
+  --bg-app: #050f0a;
+  --bg-card: #0d1e16;
+  --bg-card-hover: #142b20;
+  --bg-card-inner: #091711;
+  --bg-surface: #0b1a13;
+  --bg-header: rgba(13, 30, 22, 0.96);
+  --border-color: #18382b;
+  --border-highlight: #25523f;
+  --text-main: #ecfdf5;
+  --text-secondary: #86b99f;
+  --text-muted: #538870;
+}
+
+/* Font Family Selection */
+html[data-font='cairo'] body {
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif !important;
+}
+html[data-font='tajawal'] body {
+  font-family: 'Tajawal', system-ui, -apple-system, sans-serif !important;
+}
+html[data-font='almarai'] body {
+  font-family: 'Almarai', system-ui, -apple-system, sans-serif !important;
+}
+html[data-font='system'] body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Font Scales */
+html[data-font-size='small'] {
+  font-size: 14px;
+}
+html[data-font-size='normal'] {
+  font-size: 16px;
+}
+html[data-font-size='large'] {
+  font-size: 18px;
+}
+
+/* Border Intensity */
+html[data-border-intensity='hairline'] .border-dynamic {
+  border-width: 1px !important;
+  border-color: var(--border-color) !important;
+}
+html[data-border-intensity='bold'] .border-dynamic {
+  border-width: 2px !important;
+  border-color: var(--border-highlight) !important;
+}
+html[data-border-intensity='none'] .border-dynamic {
+  border-width: 0px !important;
+}
+
+/* Card Corners */
+.corners-sharp {
+  border-radius: 4px !important;
+}
+.corners-medium {
+  border-radius: 12px !important;
+}
+.corners-rounded {
+  border-radius: 20px !important;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-highlight);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-main);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Old Phone High Performance Mode */
+.low-spec-mode * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* No Glassmorphism */
+.no-glass {
+  backdrop-filter: none !important;
+}
+
+/* Double Tap Heart Animation for Shorts */
+@keyframes heartBurst {
+  0% {
+    transform: translate(-50%, -50%) scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  25% {
+    transform: translate(-50%, -50%) scale(1.4) rotate(-10deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1) rotate(6deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -100px) scale(1.6) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.animate-heart-burst {
+  animation: heartBurst 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  pointer-events: none;
+}
+
+/* ========================================================
+   Dynamic Theme & Accent Rules
+   ======================================================== */
+html, body {
+  background-color: var(--bg-app) !important;
+  color: var(--text-main) !important;
+}
+
+/* Light Mode Overrides */
+html[data-theme='light'] body {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html[data-theme='light'] .bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+html[data-theme='light'] .bg-slate-900 {
+  background-color: #ffffff !important;
+}
+html[data-theme='light'] .bg-slate-800 {
+  background-color: #e2e8f0 !important;
+}
+html[data-theme='light'] .border-slate-800,
+html[data-theme='light'] .border-slate-850,
+html[data-theme='light'] .border-slate-750 {
+  border-color: #cbd5e1 !important;
+}
+html[data-theme='light'] .text-slate-100,
+html[data-theme='light'] .text-white {
+  color: #0f172a !important;
+}
+html[data-theme='light'] .text-slate-300,
+html[data-theme='light'] .text-slate-400 {
+  color: #475569 !important;
+}
+
+/* OLED Mode Overrides (100% Pure Black) */
+html[data-theme='oled'] body,
+html[data-theme='oled'] .bg-slate-950 {
+  background-color: #000000 !important;
+}
+html[data-theme='oled'] .bg-slate-900 {
+  background-color: #080808 !important;
+}
+html[data-theme='oled'] .bg-slate-800 {
+  background-color: #121212 !important;
+}
+html[data-theme='oled'] .border-slate-800,
+html[data-theme='oled'] .border-slate-850,
+html[data-theme='oled'] .border-slate-750 {
+  border-color: #1f1f1f !important;
+}
+
+/* Sepia Mode Overrides */
+html[data-theme='sepia'] body,
+html[data-theme='sepia'] .bg-slate-950 {
+  background-color: #181411 !important;
+}
+html[data-theme='sepia'] .bg-slate-900 {
+  background-color: #241e1a !important;
+}
+html[data-theme='sepia'] .bg-slate-800 {
+  background-color: #312822 !important;
+}
+html[data-theme='sepia'] .border-slate-800,
+html[data-theme='sepia'] .border-slate-850,
+html[data-theme='sepia'] .border-slate-750 {
+  border-color: #3f342b !important;
+}
+html[data-theme='sepia'] .text-slate-100,
+html[data-theme='sepia'] .text-white {
+  color: #f7ece2 !important;
+}
+html[data-theme='sepia'] .text-slate-300,
+html[data-theme='sepia'] .text-slate-400 {
+  color: #c7b6a6 !important;
+}
+
+/* Navy Mode Overrides */
+html[data-theme='navy'] body,
+html[data-theme='navy'] .bg-slate-950 {
+  background-color: #060b18 !important;
+}
+html[data-theme='navy'] .bg-slate-900 {
+  background-color: #0b152d !important;
+}
+html[data-theme='navy'] .bg-slate-800 {
+  background-color: #111f42 !important;
+}
+html[data-theme='navy'] .border-slate-800,
+html[data-theme='navy'] .border-slate-850,
+html[data-theme='navy'] .border-slate-750 {
+  border-color: #182850 !important;
+}
+
+/* Forest Mode Overrides */
+html[data-theme='forest'] body,
+html[data-theme='forest'] .bg-slate-950 {
+  background-color: #050f0a !important;
+}
+html[data-theme='forest'] .bg-slate-900 {
+  background-color: #0d1e16 !important;
+}
+html[data-theme='forest'] .bg-slate-800 {
+  background-color: #142b20 !important;
+}
+html[data-theme='forest'] .border-slate-800,
+html[data-theme='forest'] .border-slate-850,
+html[data-theme='forest'] .border-slate-750 {
+  border-color: #18382b !important;
+}
+
+/* ========================================================
+   PRIMARY ACCENT APPLIED ACROSS UI
+   ======================================================== */
+.bg-amber-500,
+.btn-primary {
+  background-color: var(--accent-main) !important;
+  color: var(--accent-contrast) !important;
+}
+.hover\:bg-amber-400:hover,
+.btn-primary:hover {
+  background-color: var(--accent-hover) !important;
+}
+.text-amber-400,
+.text-amber-300 {
+  color: var(--accent-main) !important;
+}
+.border-amber-400,
+.border-amber-500\/20,
+.border-amber-500\/30,
+.border-amber-400\/30,
+.border-amber-400\/40 {
+  border-color: var(--accent-border) !important;
+}
+.bg-amber-500\/10,
+.bg-amber-500\/20,
+.bg-amber-400\/10,
+.bg-amber-400\/20 {
+  background-color: var(--accent-bg) !important;
+}
+
+/* ========================================================
+   SECONDARY COLOR (DARKENED TONE OF ACCENT) APPLIED TO
+   SECONDARY BADGES, TAGS, TIME AGO, CHANNELS, AND SUB-ACCENTS
+   ======================================================== */
+.badge-secondary,
+.tag-secondary,
+.badge-timeago {
+  background-color: var(--accent-secondary-bg) !important;
+  border-color: var(--accent-secondary-border) !important;
+  color: var(--accent-secondary-text) !important;
+}
+
+.text-accent-secondary {
+  color: var(--accent-secondary) !important;
+}
+
+.bg-accent-secondary {
+  background-color: var(--accent-secondary) !important;
+  color: #ffffff !important;
+}
+
+.border-accent-secondary {
+  border-color: var(--accent-secondary-border) !important;
+}
+
+/* Ambient Glow */
+.ambient-glow {
+  box-shadow: 0 0 35px -8px var(--accent-secondary-border) !important;
+}
